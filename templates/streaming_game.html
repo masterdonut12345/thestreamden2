@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>{{ game.matchup }} - {{ game.sport }}</title>
+
+    <!-- Open Graph / Social Preview -->
+    <meta property="og:title" content="{{ (game.matchup or 'Live Game') ~ ' – ' ~ (game.sport or 'Stream') }}" />
+    <meta property="og:description" content="Watch {{ game.matchup or 'this game' }} live on The Stream Den. Multiple streams available." />
+    <meta property="og:image" content="{{ og_image_url }}" />
+    <meta property="og:url" content="{{ share_slug_url or share_id_url }}" />
+    <meta property="og:type" content="website" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ (game.matchup or 'Live Game') ~ ' – ' ~ (game.sport or 'Stream') }}" />
+    <meta name="twitter:description" content="Watch {{ game.matchup or 'this game' }} live on The Stream Den. Multiple streams available." />
+    <meta name="twitter:image" content="{{ og_image_url }}" />
+
+    <!-- Modern font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    >
+
+    <style>
+        :root {
+            --bg: #050508;
+            --bg-alt: #050509;
+            --text: #f5f5f5;
+            --muted: #b8b8b8;
+            --accent: #7aa2ff;
+            --accent-soft: rgba(122, 162, 255, 0.16);
+            --border: #222;
+            --surface: #0b0b10;
+            --surface-2: #12121a;
+            --button-bg: #10101a;
+            --button-hover: #19192a;
+            --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.8);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: radial-gradient(circle at top, #151521 0, #050508 45%, #000 100%);
+            color: var(--text);
+        }
+
+        /* RESTORED: do NOT reserve space for the banner */
+        .page-wrapper {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px 20px 40px;
+        }
+
+        a {
+            text-decoration: none;
+            color: var(--accent);
+            transition: color 0.15s ease, text-shadow 0.18s ease;
+        }
+        a:hover {
+            color: #a4bcff;
+            text-shadow: 0 0 8px rgba(122, 162, 255, 0.4);
+        }
+
+        .live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 77, 106, 0.6);
+            background: rgba(255, 77, 106, 0.14);
+            color: #ffeef2;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-size: 0.74rem;
+            font-weight: 700;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+            cursor: default;
+        }
+
+        .live-pill::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: #ff4d6a;
+            box-shadow: 0 0 0 0 rgba(255, 77, 106, 0.6);
+            animation: livePulse 1.6s ease-out infinite;
+        }
+
+        @keyframes livePulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 77, 106, 0.6); }
+            100% { box-shadow: 0 0 0 10px rgba(255, 77, 106, 0); }
+        }
+
+        .back-link {
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+        .back-link a { color: var(--muted); }
+        .back-link a:hover { color: var(--accent); }
+
+        header {
+            border-radius: 20px;
+            padding: 16px 18px;
+            margin-bottom: 18px;
+            background: linear-gradient(135deg, rgba(122, 162, 255, 0.09), rgba(0, 0, 0, 0.8));
+            border: 1px solid rgba(122, 162, 255, 0.25);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .header-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* fixed 320x50 ad box on the left */
+        .ad-slot-left {
+            flex: 0 0 auto;
+            width: 320px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            overflow: hidden;
+        }
+        .ad-slot-left iframe {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+
+        .header-text {
+            flex: 1 1 auto;
+            padding-right: 10px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2.0rem;
+            letter-spacing: 0.02em;
+        }
+
+        h2 {
+            margin: 6px 0 10px 0;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--muted);
+        }
+
+        .title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 0 0 6px;
+        }
+
+        .meta {
+            margin-top: 4px;
+            margin-bottom: 2px;
+            font-size: 0.9em;
+            color: var(--muted);
+        }
+
+        .meta-row { margin: 2px 0; }
+        .meta strong { color: #dddddd; font-weight: 500; }
+
+        /* share link styling */
+        .share-links {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .share-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(122, 162, 255, 0.35);
+            background: rgba(122, 162, 255, 0.08);
+            color: #dde5ff;
+            font-size: 0.84rem;
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            cursor: pointer;
+        }
+        .share-pill:hover {
+            border-color: rgba(122, 162, 255, 0.75);
+            background: rgba(122, 162, 255, 0.14);
+        }
+
+        .share-status {
+            font-size: 0.82rem;
+            color: #c7cffc;
+            margin-top: 4px;
+            min-height: 1em;
+        }
+
+        .support-note-floating {
+            margin-top: 12px;
+            display: flex;
+            justify-content: flex-end;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+        .support-note-floating a { font-weight: 600; color: var(--accent); }
+        .support-note-floating a:hover { color: #a4bcff; }
+
+        .meta-chips {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .chip {
+            font-size: 0.78rem;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(10, 10, 18, 0.95);
+            color: var(--muted);
+        }
+        .chip-accent {
+            border-color: rgba(122, 162, 255, 0.6);
+            background: rgba(122, 162, 255, 0.1);
+            color: #dde5ff;
+        }
+
+        @media (max-width: 700px) {
+            .page-wrapper { padding: 16px 14px 32px; }
+            header { padding: 14px; }
+            .header-container { flex-direction: column; align-items: flex-start; }
+            .ad-slot-left { text-align: left; width: 100%; max-width: 320px; margin-bottom: 8px; }
+            h1 { font-size: 1.6rem; }
+            .title-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+            .meta { font-size: 0.95rem; }
+            .share-links { width: 100%; flex-direction: column; align-items: stretch; gap: 6px; }
+            .share-pill { width: 100%; justify-content: space-between; }
+            .meta-chips { gap: 8px; }
+            .player-card { padding: 12px; }
+            .player-layout.multi { grid-template-columns: 1fr; }
+            .player-layout.single .player-slot[data-slot="0"] iframe { height: 360px; }
+            .stream-picker { flex-direction: column; }
+            .stream-button { width: 100%; justify-content: center; }
+            .multi-view-title { flex-direction: column; align-items: flex-start; gap: 6px; }
+            .multi-controls { width: 100%; }
+            .multi-toggle-button { width: 100%; justify-content: center; }
+            .ad-slot { margin-top: 12px; }
+        }
+
+        h3 { margin-top: 12px; margin-bottom: 8px; font-size: 1.1rem; }
+
+        .chat-panel {
+            background: var(--surface);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: var(--shadow-soft);
+            display: flex;
+            flex-direction: column;
+            height: 520px;
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .chat-title {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .chat-subtitle {
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .chat-status {
+            font-size: 0.78rem;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(122, 162, 255, 0.12);
+            color: #dfe7ff;
+            white-space: nowrap;
+        }
+
+        .chat-status[data-state="warn"] {
+            background: rgba(255, 195, 113, 0.14);
+            color: #ffe8c2;
+        }
+
+        .chat-status[data-state="error"] {
+            background: rgba(255, 93, 93, 0.14);
+            color: #ffd5d5;
+        }
+
+        .chat-messages {
+            background: var(--surface-2);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            min-height: 0;
+            flex: 1 1 auto;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .chat-message {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            padding: 8px 10px;
+        }
+
+        .chat-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        .chat-text {
+            margin-top: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 0.92rem;
+        }
+
+        .chat-form {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input {
+            flex: 1 1 auto;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(0, 0, 0, 0.35);
+            color: var(--text);
+            font-size: 1rem; /* keep 16px to prevent mobile zoom */
+        }
+
+        .chat-send {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(122, 162, 255, 0.8);
+            background: var(--accent);
+            color: #050508;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.18s ease;
+        }
+
+        .chat-send:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(122, 162, 255, 0.45);
+        }
+
+        .chat-tip {
+            margin-top: 6px;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        /* Desktop rail (unchanged behavior) */
+        .chat-rail {
+            position: fixed;
+            right: 0;
+            top: 140px;
+            width: 320px;
+            z-index: 2600;
+            transform: translateX(0);
+            transition: transform 0.25s ease;
+        }
+
+        .chat-rail.closed {
+            transform: translateX(100%);
+        }
+
+        .chat-toggle {
+            position: absolute;
+            left: -36px;
+            top: 32px;
+            width: 36px;
+            height: 76px;
+            background: var(--accent);
+            color: #050508;
+            font-weight: 800;
+            border-radius: 12px 0 0 12px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            cursor: pointer;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+            z-index: 2601;
+        }
+        .chat-rail.closed .chat-toggle {
+            transform: translateX(-100%);
+        }
+
+        /* MOBILE/TABLET: bottom sheet chat (visible handle) */
+        @media (max-width: 1280px) {
+            .chat-rail {
+                display: block;
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                top: auto;
+                width: 100%;
+                max-width: none;
+                z-index: 2600;
+
+                transform: translateY(calc(100% - 56px));
+                transition: transform 0.25s ease;
+            }
+
+            .chat-rail.open {
+                transform: translateY(0);
+            }
+
+            .chat-rail.closed {
+                transform: translateY(calc(100% - 56px));
+            }
+
+            .chat-panel {
+                height: min(60vh, 480px);
+                border-radius: 16px 16px 0 0;
+            }
+
+            .chat-toggle {
+                display: block;
+                position: absolute;
+                left: 50%;
+                top: -44px;
+                transform: translateX(-50%);
+                width: 140px;
+                height: 38px;
+                border-radius: 14px 14px 0 0;
+                border: 1px solid rgba(255,255,255,0.25);
+                background: var(--accent);
+                color: #050508;
+                font-weight: 800;
+                box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+            }
+
+            /* don't slide the toggle off-screen on mobile */
+            .chat-rail.closed .chat-toggle {
+                transform: translateX(-50%);
+            }
+        }
+
+        .player-card {
+            margin-top: 4px;
+            border-radius: 18px;
+            padding: 14px 14px 18px;
+            background: radial-gradient(circle at top left, rgba(122, 162, 255, 0.1), var(--surface));
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.9);
+        }
+
+        /* PLAYER LAYOUT: single vs 2x2 grid */
+        .player-layout {
+            position: relative;
+            width: 100%;
+        }
+
+        .player-slot {
+            background: #050508;
+            border-radius: 14px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .player-slot iframe {
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            background: #050508;
+        }
+
+        /* Single-view: one big iframe */
+        .player-layout.single { display: block; }
+        .player-layout.single .player-slot[data-slot="0"] iframe { height: 480px; }
+
+        /* Multi-view: 2x2 grid, all equal */
+        .player-layout.multi {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .player-layout.multi .player-slot iframe {
+            height: auto;
+            aspect-ratio: 16 / 9;
+            border-radius: 0 0 14px 14px;
+        }
+
+        .player-layout.single .extra-slot { display: none; }
+        .player-layout.multi .extra-slot { display: flex; }
+
+        .multi-slot-header {
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.75);
+            font-size: 0.78rem;
+            color: var(--muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .multi-slot-title {
+            flex: 1 1 auto;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .multi-slot-select {
+            max-width: 260px;
+            font-size: 0.78rem;
+            background: rgba(5, 5, 12, 0.95);
+            color: var(--text);
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            padding: 3px 8px;
+        }
+
+        @media (max-width: 700px) {
+            .player-layout.single .player-slot[data-slot="0"] iframe { height: 360px; }
+        }
+
+        .stream-picker {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .stream-button {
+            padding: 7px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: var(--button-bg);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 0.86rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition:
+                background 0.15s ease,
+                border-color 0.15s ease,
+                transform 0.1s ease,
+                box-shadow 0.15s ease;
+        }
+        .stream-button:hover {
+            background: var(--button-hover);
+            border-color: rgba(122, 162, 255, 0.7);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7);
+        }
+        .stream-button.active {
+            background: var(--accent);
+            color: #050508;
+            border-color: var(--accent);
+            font-weight: 600;
+            box-shadow: 0 14px 30px rgba(122, 162, 255, 0.5);
+        }
+
+        .ad-slot {
+            margin: 16px 0 0;
+            text-align: center;
+        }
+
+        .no-stream {
+            margin-top: 30px;
+            padding: 16px 14px;
+            border-radius: 14px;
+            background: rgba(10, 10, 16, 0.95);
+            border: 1px dashed rgba(122, 162, 255, 0.4);
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        /* MULTI-VIEW / VIEW CONTROLS */
+        .multi-view-title {
+            margin-top: 18px;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .multi-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .multi-toggle-button {
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: var(--button-bg);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .multi-toggle-button:hover {
+            background: var(--button-hover);
+            border-color: rgba(122, 162, 255, 0.7);
+        }
+
+        /* ========== FULL-PAGE PLAYER MODE FIXED ========== */
+        body.full-page-player {
+            overflow: hidden;
+            background: #000;
+        }
+
+        body.full-page-player .page-wrapper {
+            max-width: none;
+            padding: 0;
+            height: 100vh;
+        }
+
+        body.full-page-player header,
+        body.full-page-player .back-link,
+        body.full-page-player footer {
+            display: none;
+        }
+
+        body.full-page-player .player-card {
+            position: fixed;
+            inset: 0;
+            margin: 0;
+            border-radius: 0;
+            box-shadow: none;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            z-index: 9999;
+        }
+
+        body.full-page-player .player-card h3 { display: none; }
+
+        body.full-page-player .player-layout {
+            flex: 1 1 auto;
+            height: 100%;
+        }
+
+        body.full-page-player .player-layout.single .player-slot[data-slot="0"],
+        body.full-page-player .player-layout.single .player-slot[data-slot="0"] iframe {
+            height: 100%;
+        }
+
+        body.full-page-player .player-layout.multi {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 0;
+            height: 100%;
+        }
+
+        body.full-page-player .player-layout.multi .player-slot,
+        body.full-page-player .player-layout.multi .player-slot iframe {
+            height: 100%;
+            border-radius: 0;
+        }
+
+        body.full-page-player .ad-slot { display: none; }
+        body.full-page-player #stream-picker { display: none !important; }
+
+        body.full-page-player .multi-view-title {
+            position: fixed;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            margin: 0;
+            z-index: 10001;
+        }
+
+        body.full-page-player .multi-view-title span:first-child { display: none; }
+
+        body.full-page-player .multi-controls {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 6px 8px;
+            border-radius: 999px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
+        }
+
+        .left-rail-ad {
+            position: fixed;
+            left: 16px;
+            top: 200px;
+            width: 160px;
+            z-index: 2500;
+        }
+        .left-rail-ad .box {
+            width: 160px;
+            height: 300px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.8);
+            background: rgba(0,0,0,0.35);
+        }
+
+        /* hide on smaller screens to avoid overlap */
+        @media (max-width: 1280px) {
+            .left-rail-ad { display: none; }
+        }
+
+        /* hide in full-page mode */
+        body.full-page-player .left-rail-ad { display: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .live-pill::before { animation: none !important; box-shadow: 0 0 0 0 rgba(255, 77, 106, 0.6); }
+        }
+    </style>
+</head>
+
+<body>
+    {% set short_slug = (game.slug or '') %}
+
+    <div class="page-wrapper">
+        <div class="back-link">
+            <a href="{{ url_for('streaming.index') }}">Back to today's games</a>
+        </div>
+
+        <header>
+            <div class="header-container">
+                <div class="ad-slot-left">
+                    <script type="text/javascript">
+                      atOptions = {
+                        'key' : '5478f94711ce55d9b858433d3c49812f',
+                        'format' : 'iframe',
+                        'height' : 50,
+                        'width' : 320,
+                        'params' : {}
+                      };
+                    </script>
+                    <script
+                      type="text/javascript"
+                      src="//www.highperformanceformat.com/5478f94711ce55d9b858433d3c49812f/invoke.js"
+                    ></script>
+                </div>
+
+                <div class="header-text">
+                    <div class="title-row">
+                        <h1>{{ game.matchup }}</h1>
+                        {% if game.is_live %}
+                            <span class="live-pill" aria-label="Live now">LIVE</span>
+                        {% endif %}
+                    </div>
+                    <h2>{{ game.sport }}</h2>
+
+                    <div class="meta">
+                        <div class="meta-row">
+                            <strong>Tournament:</strong>
+                            {{ game.tournament or 'N/A' }}
+                            {% if game.tournament_url %}
+                                &mdash; <a href="{{ game.tournament_url }}" target="_blank" rel="noopener">Tournament page (opens in new tab)</a>
+                            {% endif %}
+                        </div>
+
+                        <div class="meta-row">
+                            <strong>Date:</strong> {{ game.date_header or 'Today' }}
+                            {% if game.time %}
+                                &mdash; <strong>Time:</strong> {{ game.time }}
+                            {% elif game.time_unix %}
+                                &mdash; <strong>Time (unix):</strong> {{ game.time_unix }}
+                            {% endif %}
+                        </div>
+
+                        <div class="meta-row">
+                            <strong>Share:</strong>
+                            <span class="share-links">
+                                <a class="share-pill"
+                                   href="{{ share_slug_url }}"
+                                   data-url="{{ share_slug_url }}"
+                                   data-label="Link 1"
+                                   role="button"
+                                   title="{{ share_slug_url }}">
+                                    Link 1
+                                </a>
+
+                                <a class="share-pill"
+                                   href="{{ share_id_url }}"
+                                   data-url="{{ share_id_url }}"
+                                   data-label="Link 2"
+                                   role="button"
+                                   title="{{ share_id_url }}">
+                                    Link 2
+                                </a>
+                            </span>
+                            <div class="share-status" id="share-status" aria-live="polite"></div>
+                        </div>
+                    </div>
+
+                    <div class="meta-chips">
+                        <span class="chip chip-accent">Live stream</span>
+                        {% if game.sport %}<span class="chip">{{ game.sport }}</span>{% endif %}
+                        {% if game.tournament %}<span class="chip">{{ game.tournament }}</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        {% if game.streams and game.streams|length > 0 %}
+            {% set first_stream = game.streams[0] %}
+            <div class="player-card">
+                <h3>Live Stream</h3>
+
+                <div class="player-layout single" id="player-layout">
+                    <div class="player-slot" data-slot="0">
+                        <iframe
+                            id="game-iframe"
+                            src="{{ first_stream.embed_url }}"
+                            allowfullscreen
+                            scrolling="no"
+                            allow="autoplay; encrypted-media; picture-in-picture; fullscreen">
+                        </iframe>
+                    </div>
+
+                    {% if other_games and other_games|length > 0 %}
+                        {% set options = [] %}
+                        {% for g in other_games %}
+                            {% if g.streams and g.streams|length > 0 %}
+                                {% set _ = options.append(g) %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                {% if game.streams|length > 1 %}
+                    <div class="stream-picker" id="stream-picker">
+                        {% for s in game.streams %}
+                            <button
+                                type="button"
+                                class="stream-button {% if loop.first %}active{% endif %}"
+                                data-embed-url="{{ s.embed_url }}"
+                                data-stream-slug="{{ s.slug }}"
+                            >
+                                {{ s.label or ('Stream ' ~ loop.index) }}
+                            </button>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- CONTROLS -->
+                <div class="multi-view-title">
+                    <span>
+                        {% if other_games and other_games|length > 0 %}
+                            Multi-view & size controls
+                        {% else %}
+                            View size controls
+                        {% endif %}
+                    </span>
+                    <div class="multi-controls">
+                        {% if other_games and other_games|length > 0 %}
+                            <button type="button" class="multi-toggle-button" id="multi-toggle">
+                                Enable multi-view
+                            </button>
+                        {% endif %}
+                        <button type="button" class="multi-toggle-button" id="fullscreen-toggle">
+                            Enter full-page
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ad-slot">
+                    <script
+                      async="async"
+                      data-cfasync="false"
+                      src="//pl28213154.effectivegatecpm.com/ced6c8c8dbe2168bf17b0ffaa1cf5474/invoke.js"
+                    ></script>
+                    <div id="container-ced6c8c8dbe2168bf17b0ffaa1cf5474"></div>
+                </div>
+            </div>
+        {% else %}
+            <div class="no-stream">
+                <strong>No embed URL available for this game.</strong><br>
+                Check back closer to game time or try another stream.
+            </div>
+        {% endif %}
+
+        <div class="support-note-floating">
+            Having issues with streams? <a href="https://x.com/thestreamden" target="_blank" rel="noopener">@TheStreamDen</a>
+        </div>
+
+    </div>
+
+    <!-- FIXED banner OUTSIDE .page-wrapper so it never changes layout -->
+    <div class="left-rail-ad" aria-label="Left rail ad">
+        <div class="box">
+            <script type="text/javascript">
+              atOptions = {
+                'key' : '29ef845582924216c628b8930841e3bb',
+                'format' : 'iframe',
+                'height' : 300,
+                'width' : 160,
+                'params' : {}
+              };
+            </script>
+            <script
+              type="text/javascript"
+              src="https://broodbelongminiature.com/29ef845582924216c628b8930841e3bb/invoke.js"
+            ></script>
+        </div>
+    </div>
+
+    <!-- Chat: start closed by default (mobile handle visible). Desktop JS will open it. -->
+    <div class="chat-rail closed" aria-label="Live chat" id="chat-rail">
+        <button
+            type="button"
+            class="chat-toggle"
+            id="chat-toggle"
+            aria-expanded="false"
+            aria-controls="chat-rail"
+            aria-label="Show chat panel">
+            Chat
+        </button>
+        <div class="chat-panel">
+            <div class="chat-header">
+                <div>
+                    <div class="chat-title">Live chat</div>
+                    <div class="chat-subtitle">{{ game.matchup or "This game" }}</div>
+                </div>
+                <span class="chat-status" id="chat-status">Connecting…</span>
+            </div>
+
+            <div class="chat-messages" id="chat-messages" aria-live="polite"></div>
+
+            <form class="chat-form" id="chat-form">
+                <input
+                    id="chat-input"
+                    class="chat-input"
+                    type="text"
+                    name="message"
+                    maxlength="400"
+                    placeholder="Say something about this game…"
+                    autocomplete="off"
+                    required
+                >
+                <button type="submit" class="chat-send">Send</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+    <script>
+        (function () {
+            const chatRail = document.getElementById('chat-rail');
+            const chatToggle = document.getElementById('chat-toggle');
+            const chatMessages = document.getElementById('chat-messages');
+            const chatForm = document.getElementById('chat-form');
+            const chatInput = document.getElementById('chat-input');
+            const chatStatus = document.getElementById('chat-status');
+            const gameId = "{{ game.id }}";
+
+            if (!chatRail || !chatToggle || !chatMessages || !chatForm || !chatInput || !chatStatus || !gameId) {
+                return;
+            }
+
+            function setToggleState(isOpen) {
+                chatRail.classList.toggle("open", isOpen);
+                chatRail.classList.toggle("closed", !isOpen);
+                chatToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+                chatToggle.textContent = isOpen ? "Hide chat" : "Chat";
+                chatToggle.setAttribute("aria-label", isOpen ? "Hide chat panel" : "Show chat panel");
+            }
+
+            // Desktop: open by default. Mobile/tablet: closed by default (handle visible).
+            const isSmall = window.matchMedia("(max-width: 1280px)").matches;
+            setToggleState(!isSmall);
+
+            const MAX_RENDERED = 200;
+            let connected = false;
+            let socket = null;
+            let usingPollingFallback = false;
+
+            function disconnectSocket() {
+                if (!socket) return;
+                if (typeof socket.off === "function") {
+                    socket.off();
+                    if (socket.io && typeof socket.io.off === "function") {
+                        socket.io.off();
+                    }
+                }
+                socket.disconnect();
+            }
+
+            function buildSocketOptions(forcePolling) {
+                const opts = {
+                    transports: ["websocket", "polling"],
+                    upgrade: true,
+                    reconnection: true,
+                    reconnectionAttempts: 8,
+                    reconnectionDelay: 750,
+                    reconnectionDelayMax: 5000,
+                    timeout: 8000,
+                };
+
+                if (forcePolling) {
+                    opts.transports = ["polling"];
+                    opts.upgrade = false;
+                }
+
+                return opts;
+            }
+
+            function attachSocket(forcePolling = false) {
+                disconnectSocket();
+                usingPollingFallback = forcePolling;
+                socket = io(buildSocketOptions(forcePolling));
+
+                socket.on("connect", function () {
+                    connected = true;
+                    setStatus("Connected", "ok");
+                    socket.emit("join", { game_id: gameId });
+                });
+
+                socket.on("disconnect", function () {
+                    connected = false;
+                    setStatus("Disconnected. Reconnecting…", "warn");
+                });
+
+                socket.on("connect_error", function (err) {
+                    console.warn("chat connect_error", err);
+
+                    if (!usingPollingFallback) {
+                        setStatus("Chat unavailable over websockets. Retrying…", "warn");
+                        attachSocket(true);
+                        return;
+                    }
+
+                    setStatus("Chat unavailable. Retrying…", "error");
+                });
+
+                socket.io.on("reconnect_attempt", function () {
+                    setStatus("Reconnecting…", "warn");
+                });
+
+                socket.io.on("reconnect_failed", function () {
+                    if (!usingPollingFallback) {
+                        setStatus("Websocket failed. Switching to polling…", "warn");
+                        attachSocket(true);
+                        return;
+                    }
+
+                    setStatus("Chat unavailable", "error");
+                });
+
+                socket.on("recent_messages", function (messages) {
+                    chatMessages.innerHTML = "";
+                    (messages || []).forEach(function (m) { addMessage(m); });
+                });
+
+                socket.on("chat_message", function (msg) {
+                    addMessage(msg);
+                });
+            }
+
+            function setStatus(text, state) {
+                chatStatus.textContent = text;
+                chatStatus.dataset.state = state || "ok";
+            }
+
+            function escapeText(value) {
+                return (value || "").replace(/[&<>"']/g, function (c) {
+                    switch (c) {
+                        case "&": return "&amp;";
+                        case "<": return "&lt;";
+                        case ">": return "&gt;";
+                        case "\"": return "&quot;";
+                        case "'": return "&#39;";
+                        default: return c;
+                    }
+                });
+            }
+
+            function formatTime(ts) {
+                if (!ts) return "";
+                try {
+                    return new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                } catch (err) {
+                    return "";
+                }
+            }
+
+            function addMessage(msg, { prepend = false } = {}) {
+                if (!msg) return;
+                const wrapper = document.createElement("div");
+                wrapper.className = "chat-message";
+
+                const meta = document.createElement("div");
+                meta.className = "chat-meta";
+                const name = escapeText(msg.user && msg.user.display ? msg.user.display : "Viewer");
+                const time = formatTime(msg.ts);
+                meta.innerHTML = `<span>${name}</span><span>${time}</span>`;
+
+                const body = document.createElement("div");
+                body.className = "chat-text";
+                body.innerHTML = escapeText(msg.text || "");
+
+                wrapper.appendChild(meta);
+                wrapper.appendChild(body);
+
+                if (prepend && chatMessages.firstChild) {
+                    chatMessages.insertBefore(wrapper, chatMessages.firstChild);
+                } else {
+                    chatMessages.appendChild(wrapper);
+                }
+
+                while (chatMessages.children.length > MAX_RENDERED) {
+                    chatMessages.removeChild(chatMessages.firstChild);
+                }
+
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            attachSocket();
+
+            chatToggle.addEventListener("click", function () {
+                const isOpen = !chatRail.classList.contains("open");
+                setToggleState(isOpen);
+                if (isOpen && !isSmall) {
+                    chatInput.focus({ preventScroll: true });
+                }
+            });
+
+            let lastSendTs = 0;
+            const MIN_INTERVAL_MS = 1500;
+
+            chatForm.addEventListener("submit", function (evt) {
+                evt.preventDefault();
+                const text = (chatInput.value || "").trim();
+                if (!text) return;
+
+                const now = Date.now();
+                if (now - lastSendTs < MIN_INTERVAL_MS) {
+                    setStatus("Slow down…", "warn");
+                    return;
+                }
+
+                if (!connected) {
+                    setStatus("Connecting…", "warn");
+                    socket.connect();
+                    return;
+                }
+
+                lastSendTs = now;
+                socket.emit("send_message", { game_id: gameId, text: text });
+                chatInput.value = "";
+            });
+        })();
+    </script>
+
+    <script>
+        (function() {
+            const mainIframe       = document.getElementById('game-iframe');
+            const picker           = document.getElementById('stream-picker');
+            const playerLayout     = document.getElementById('player-layout');
+            const multiToggle      = document.getElementById('multi-toggle');
+            const fullscreenToggle = document.getElementById('fullscreen-toggle');
+
+            const requestedSlug = "{{ (requested_stream_slug or '')|e }}";
+
+            function setQueryParam(name, value) {
+                try {
+                    const url = new URL(window.location.href);
+                    if (value) url.searchParams.set(name, value);
+                    else url.searchParams.delete(name);
+                    window.history.replaceState({}, "", url.toString());
+                } catch (e) {}
+            }
+
+            function activateStreamButton(btn) {
+                if (!btn || !mainIframe || !picker) return false;
+                const url = btn.getAttribute('data-embed-url');
+                if (!url) return false;
+
+                mainIframe.src = url;
+
+                picker.querySelectorAll('.stream-button').forEach(b => {
+                    b.classList.toggle('active', b === btn);
+                });
+
+                const slug = btn.getAttribute('data-stream-slug');
+                if (slug) setQueryParam('stream', slug);
+
+                return true;
+            }
+
+            function activateStreamBySlug(slug) {
+                if (!picker || !slug) return false;
+                const safe = slug.replace(/"/g, '\\"');
+                const btn = picker.querySelector('.stream-button[data-stream-slug="' + safe + '"]');
+                if (!btn) return false;
+                return activateStreamButton(btn);
+            }
+
+            if (picker && mainIframe) {
+                picker.addEventListener('click', function (evt) {
+                    const btn = evt.target.closest('.stream-button');
+                    if (!btn) return;
+                    activateStreamButton(btn);
+                });
+
+                if (requestedSlug) {
+                    activateStreamBySlug(requestedSlug);
+                }
+            }
+
+            if (playerLayout && multiToggle) {
+                let multiOn = false;
+
+                multiToggle.addEventListener('click', function () {
+                    multiOn = !multiOn;
+                    if (multiOn) {
+                        playerLayout.classList.remove('single');
+                        playerLayout.classList.add('multi');
+                        multiToggle.textContent = 'Disable multi-view';
+                    } else {
+                        playerLayout.classList.remove('multi');
+                        playerLayout.classList.add('single');
+                        multiToggle.textContent = 'Enable multi-view';
+                    }
+                });
+
+                const extraSlots = playerLayout.querySelectorAll('.extra-slot');
+                extraSlots.forEach(slot => {
+                    const select = slot.querySelector('.multi-slot-select');
+                    const titleEl = slot.querySelector('.multi-slot-title');
+                    const iframe  = slot.querySelector('iframe');
+
+                    if (!select || !titleEl || !iframe) return;
+
+                    select.addEventListener('change', () => {
+                        const opt   = select.options[select.selectedIndex];
+                        const url   = opt.value;
+                        const title = opt.getAttribute('data-title') || 'Extra stream';
+
+                        if (url) {
+                            iframe.src = url;
+                            titleEl.textContent = title;
+                        } else {
+                            iframe.src = '';
+                            titleEl.textContent = 'Empty slot';
+                        }
+                    });
+                });
+            }
+
+            if (fullscreenToggle) {
+                let fullOn = false;
+
+                fullscreenToggle.addEventListener('click', function () {
+                    fullOn = !fullOn;
+                    document.body.classList.toggle('full-page-player', fullOn);
+                    fullscreenToggle.textContent = fullOn ? 'Exit full-page' : 'Enter full-page';
+                });
+            }
+        })();
+    </script>
+
+    <script>
+        (function () {
+            const shareButtons = document.querySelectorAll('.share-pill[data-url]');
+            const statusEl = document.getElementById('share-status');
+
+            const showStatus = (msg) => {
+                if (!statusEl) return;
+                statusEl.textContent = msg;
+            };
+
+            async function copyToClipboard(text) {
+                if (!text) return false;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                }
+
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.setAttribute('readonly', '');
+                textarea.style.position = 'absolute';
+                textarea.style.left = '-9999px';
+                document.body.appendChild(textarea);
+                textarea.select();
+                const ok = document.execCommand('copy');
+                textarea.remove();
+                return ok;
+            }
+
+            shareButtons.forEach((btn) => {
+                btn.addEventListener('click', async function (e) {
+                    e.preventDefault();
+                    const url = btn.getAttribute('data-url');
+                    const label = btn.getAttribute('data-label') || 'Link';
+                    try {
+                        const success = await copyToClipboard(url);
+                        if (success) {
+                            showStatus(`${label} copied to clipboard`);
+                        } else {
+                            showStatus('Copy failed. Tap and hold to copy.');
+                        }
+                    } catch (err) {
+                        showStatus('Copy failed. Tap and hold to copy.');
+                    }
+                });
+            });
+        })();
+    </script>
+
+    <script>
+        (function () {
+            function sendHeartbeat() {
+                fetch("{{ url_for('streaming.heartbeat') }}", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ path: window.location.pathname })
+                }).catch(function (err) {
+                    if (window.console && console.debug) console.debug("heartbeat error", err);
+                });
+            }
+
+            sendHeartbeat();
+            setInterval(sendHeartbeat, 30000);
+        })();
+    </script>
+
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "643968b4db2b4d4c80a6f49718fcfcaa"}'></script>
+
+{% if open_ad %}
+<script>
+  window.addEventListener('load', function () {
+    try {
+      window.open(
+        'https://broodbelongminiature.com/d01t94kua?key=491dbdc350af1bf2b2f5c05ef1a574df',
+        '_blank'
+      );
+    } catch (e) {
+      if (window.console && console.debug) {
+        console.debug('Ad popunder blocked:', e);
+      }
+    }
+  });
+</script>
+{% endif %}
+</body>
+</html>
