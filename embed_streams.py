@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List
-from urllib.parse import urlparse, urljoin
+from typing import List, Sequence
+from urllib.parse import urlparse, urljoin, urlencode
 
 import requests
 from bs4 import BeautifulSoup
@@ -39,6 +39,23 @@ def _normalize_url(base: str, maybe_relative: str) -> str:
         return (maybe_relative or "").strip()
 
 
+def _normalize_parent_hosts(parent_hosts: Sequence[str] | str | None) -> List[str]:
+    if isinstance(parent_hosts, str):
+        raw = parent_hosts.split(",")
+    else:
+        raw = parent_hosts or []
+
+    cleaned: List[str] = []
+    for host in raw:
+        h = (host or "").strip().lower()
+        if not h:
+            continue
+        h = h.split(":")[0]
+        if h not in cleaned:
+            cleaned.append(h)
+    return cleaned or ["localhost"]
+
+
 def _dedup_keep_order(items: List[str]) -> List[str]:
     seen = set()
     out = []
@@ -49,7 +66,7 @@ def _dedup_keep_order(items: List[str]) -> List[str]:
     return out
 
 
-def _twitch_candidates(user_input: str, parent_host: str) -> List[EmbedCandidate]:
+def _twitch_candidates(user_input: str, parent_hosts: Sequence[str] | str) -> List[EmbedCandidate]:
     """
     Accepts:
       - channel name: "shroud"
@@ -69,7 +86,11 @@ def _twitch_candidates(user_input: str, parent_host: str) -> List[EmbedCandidate
     if not channel:
         return []
 
-    embed_url = f"https://player.twitch.tv/?channel={channel}&parent={parent_host}"
+    parents = _normalize_parent_hosts(parent_hosts)
+    parent_qs = urlencode([("parent", h) for h in parents])
+    embed_url = f"https://player.twitch.tv/?channel={channel}"
+    if parent_qs:
+        embed_url += f"&{parent_qs}"
     html = (
         f'<iframe src="{embed_url}" '
         f'width="800" height="450" frameborder="0" '
@@ -278,7 +299,7 @@ def _other_candidates(page_url: str) -> List[EmbedCandidate]:
 
     return out
 
-def get_embed_candidates(source: str, user_input: str, parent_host: str) -> List[dict]:
+def get_embed_candidates(source: str, user_input: str, parent_hosts: Sequence[str] | str) -> List[dict]:
     """
     Returns a list of dicts (Jinja-friendly) with:
       - kind, label, preview_html, chosen_value
@@ -288,7 +309,7 @@ def get_embed_candidates(source: str, user_input: str, parent_host: str) -> List
 
     try:
         if source == "twitch":
-            cands = _twitch_candidates(user_input, parent_host)
+            cands = _twitch_candidates(user_input, parent_hosts)
         elif source == "youtube":
             cands = _youtube_candidates(user_input)
         elif source == "x":
