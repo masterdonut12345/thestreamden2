@@ -9,13 +9,14 @@ import time
 import json
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Sequence
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit, quote
 from markupsafe import Markup
 from flask import (
     Flask,
     abort,
     g,
+    has_request_context,
     jsonify,
     redirect,
     render_template,
@@ -43,7 +44,11 @@ ADMIN_GATE = os.environ.get("ADMIN_GATE")
 EXP_CHOICES = ["1 day", "3 days", "1 week", "1 month"]
 DEFAULT_TAG = "general"
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN")
-TWITCH_PARENT_HOST = "thestreamden.com"
+TWITCH_PARENT_HOSTS = [
+    h.strip()
+    for h in os.environ.get("TWITCH_PARENT_HOSTS", "thestreamden.com").split(",")
+    if h.strip()
+]
 CLEANUP_INTERVAL_SECONDS = int(os.environ.get("CLEANUP_INTERVAL_SECONDS", "3600"))
 _cleanup_thread_started = False
 _seed_started = False
@@ -52,9 +57,14 @@ REDIS_URL = os.environ.get("REDIS_URL")
 CHAT_MAX_MESSAGES = int(os.environ.get("CHAT_MAX_MESSAGES", "25"))
 CHAT_MAX_LENGTH = int(os.environ.get("CHAT_MAX_LENGTH", "400"))
 
+
+def _env_flag(name: str, default: str = "1") -> bool:
+    return os.environ.get(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
 app.secret_key = os.environ.get("APP_SECRET", "dev-secret-key")
 app.config.update(
-    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SECURE=_env_flag("SESSION_COOKIE_SECURE", "1"),
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
 )
@@ -127,6 +137,29 @@ class ChatStore:
 
 
 chat_store = ChatStore(REDIS_URL, CHAT_MAX_MESSAGES)
+
+
+def _normalize_parent_hosts(hosts: Sequence[str] | None) -> list[str]:
+    cleaned = []
+    for raw in hosts or []:
+        host = (raw or "").strip().lower()
+        if not host:
+            continue
+        host = host.split(":")[0]
+        if host and host not in cleaned:
+            cleaned.append(host)
+    return cleaned
+
+
+def get_twitch_parent_hosts() -> list[str]:
+    hosts: list[str] = []
+    if has_request_context():
+        req_host = (request.host or "").split(":")[0].strip().lower()
+        if req_host:
+            hosts.append(req_host)
+    hosts.extend(TWITCH_PARENT_HOSTS)
+    normalized = _normalize_parent_hosts(hosts)
+    return normalized or ["localhost"]
 
 
 # -----------------------------
@@ -900,7 +933,7 @@ def delete_post_owned(db, post_id: int, user: User):
         thread.reply_count = max((thread.reply_count or 1) - 1, 0)
         db.commit()
 
-def detect_stream_embed(url: str, parent_host: str) -> dict:
+def detect_stream_embed(url: str, parent_hosts: Sequence[str]) -> dict:
     from urllib.parse import urlparse, parse_qs
 
     if not url:
@@ -936,8 +969,22 @@ def detect_stream_embed(url: str, parent_host: str) -> dict:
 
     if "twitch.tv" in host:
         slug = u.path.strip("/")
-        if slug:
-            return {"type": "iframe", "src": f"https://player.twitch.tv/?channel={slug}&parent={parent_host}", "title": "Twitch"}
+        qs = parse_qs(u.query)
+        channel = slug or qs.get("channel", [None])[0]
+        vod = qs.get("video", [None])[0]
+        params = []
+        if channel:
+            params.append(("channel", channel))
+        elif vod:
+            params.append(("video", vod))
+        for h in _normalize_parent_hosts(parent_hosts):
+            params.append(("parent", h))
+        if params:
+            return {
+                "type": "iframe",
+                "src": f"https://player.twitch.tv/?{urlencode(params)}",
+                "title": "Twitch",
+            }
 
     return {"type": "iframe", "src": url, "title": "Stream"}
 
@@ -1665,7 +1712,7 @@ def embed_stream():
     candidates = []
     if request.method == "POST":
         require_csrf()
-        candidates = embed_streams.get_embed_candidates(source, user_input, TWITCH_PARENT_HOST)
+        candidates = embed_streams.get_embed_candidates(source, user_input, get_twitch_parent_hosts())
 
     def ensure_param(url: str, key: str, value: str) -> str:
         if f"{key}=" in url:
@@ -1732,7 +1779,7 @@ def thread_page(thread_id):
     db.refresh(t)
 
     posts_tree = build_post_tree(db, thread_id)
-    embed_info = detect_stream_embed(t.stream_link, TWITCH_PARENT_HOST)
+    embed_info = detect_stream_embed(t.stream_link, get_twitch_parent_hosts())
     categories, cat_lookup, _ = load_category_indexes(db)
     return render_template(
         "thread.html",
